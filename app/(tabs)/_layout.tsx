@@ -36,12 +36,12 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
+      {/*<Tabs.Screen
         name="marker/[id]"
         options={{
           href: null, // Это скрывает маршрут из навигации
         }}
-      />
+      />*/}
     </Tabs>
   );
 }
