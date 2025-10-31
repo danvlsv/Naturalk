@@ -1,33 +1,45 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import Entypo from '@expo/vector-icons/Entypo';
+
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        tabBarActiveTintColor: '#90BE6D',
+        headerStyle: {
+          backgroundColor: '#25292e',
+        },
+        headerShadowVisible: false,
+        headerTintColor: '#fff',
+        tabBarStyle: {
+          backgroundColor: '#25292e',
+        },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Map',
+          tabBarIcon: ({ color, focused }) => (
+            <Entypo name='map' color={color} size={24} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="about"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'About',
+          tabBarIcon: ({ color, focused }) => (
+            <Entypo name='user' color={color} size={24}/>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="marker/[id]"
+        options={{
+          href: null, // Это скрывает маршрут из навигации
         }}
       />
     </Tabs>
