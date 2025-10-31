@@ -1,55 +1,43 @@
-# Welcome to your Expo app 👋
+# Naturalk - Expo App for tracking and sharing walks and nature
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+### Prerequisites
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- Node.js (v22 or later)
+- npm or yarn
+- Expo CLI
+- Android Studio (for Android) or Xcode (for iOS) - for building and use withoit Expo Go
 
 
+### Installation
+
+1. Clone the repository:
+
+```git clone <your-repo-url>```
+```cd Naturalk```
+
+2. Install dependencies:
+
+```npm install```
+
+3. Install required Expo packages:
+
+```npx expo install expo-image-picker @react-native-async-storage/async-storage react-native-maps```
+
+4. Start the development server:
+
+```npx expo start```
+
+5. Run on your device:
+   - Press `a` for Android
+   - Press `i` for iOS
+   - Scan QR code with Expo Go app
 
 
-npm
+TODO:
+
+- Implement unique UX/UI experiences
+- User pages
+- Different marker types corresponding to different types of places
+- Different marker visuals
+- Splash screen
+- Detailed pages for each marker
