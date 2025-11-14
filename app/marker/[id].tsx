@@ -14,7 +14,6 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import ImageList from '@/components/ImageList';
 import { MarkerDetailsParams } from '@/types';
 import { useMarkers } from '@/contexts/MarkersContext';
 
