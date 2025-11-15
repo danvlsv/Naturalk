@@ -26,7 +26,6 @@ interface MarkerModalProps {
 export default function MarkerModal({ visible, marker, images, onChangeImages, onSave, onCancel }: MarkerModalProps) {
   const [markerName, setMarkerName] = useState(marker.title || '');
 
-  // Update local states when marker or images prop changes
   useEffect(() => {
     setMarkerName(marker.title || '');
   }, [marker]);
@@ -36,7 +35,6 @@ export default function MarkerModal({ visible, marker, images, onChangeImages, o
       Alert.alert('Ошибка', 'Пожалуйста, введите название маркера');
       return;
     }
-    // Pass updated marker and images separately on save
     onSave({ ...marker, title: markerName.trim() }, images);
   };
 

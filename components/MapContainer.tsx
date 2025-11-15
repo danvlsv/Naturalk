@@ -33,7 +33,7 @@ export default function MapContainer({ initialRegion }: MapContainerProps) {
     title: 'Новый маркер',
   };
   setCurrentMarker(newMarker);
-  setCurrentImages([]); // reset image list for new marker
+  setCurrentImages([]);
   setModalVisible(true);
 };
 
@@ -43,23 +43,17 @@ export default function MapContainer({ initialRegion }: MapContainerProps) {
 
   const onSaveMarker = async (updatedMarker: MarkerData, images: { uri: string }[]) => {
   if (!updatedMarker.title?.trim()) {
-    // Optional: validation before saving
     return;
   }
 
   try {
-    // Add marker to DB, get new marker id
     const newMarkerId = await addMarker(updatedMarker);
-
-    // Add all images to marker by new id
 
     if (images && images.length > 0) {
       for (const image of images) {
         await addImageToMarker(newMarkerId, image.uri);
       }
     }
-
-    // Optionally reload markers here or rely on existing logic
 
   } catch (error) {
     console.error('Error saving marker or images:', error);

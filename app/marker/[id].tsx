@@ -16,7 +16,7 @@ import {
   View
 } from 'react-native';
 
-import ImageView from 'react-native-image-viewing'; // optional: enhanced image viewer
+import ImageView from 'react-native-image-viewing';
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,19 +27,19 @@ export default function MarkerDetailsScreen() {
 
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<{ id: number; uri: string }[]>([]);
 
   const markerData = getMarkerById(Number(id));
 
   useEffect(() => {
-    if (markerData) {
-      getImagesForMarker(markerData.id)
-        .then((imgs) => setImages(imgs.map((img) => img.uri)))
-        .catch(() => setImages([]));
-    } else {
-      setImages([]);
-    }
-  }, [markerData]);
+  if (markerData) {
+    getImagesForMarker(markerData.id)
+      .then(setImages)
+      .catch(() => setImages([]));
+  } else {
+    setImages([]);
+  }
+}, [markerData]);
 
   const handleAddImage = async () => {
     if (!markerData) return;
@@ -53,9 +53,8 @@ export default function MarkerDetailsScreen() {
     if (!result.canceled && result.assets.length > 0) {
       try {
         await addImageToMarker(markerData.id, result.assets[0].uri);
-        // Refresh images after adding
         const updatedImages = await getImagesForMarker(markerData.id);
-        setImages(updatedImages.map((img) => img.uri));
+        setImages(updatedImages);
       } catch (error) {
         Alert.alert('Ошибка', 'Не удалось добавить изображение');
       }
@@ -63,39 +62,33 @@ export default function MarkerDetailsScreen() {
   };
 
   const handleDeleteImage = () => {
-    if (!markerData || images.length === 0) return;
+  if (!markerData || images.length === 0 || selectedImageIndex === null) return;
 
-    Alert.alert(
-      'Удалить фото',
-      'Вы уверены, что хотите удалить это фото?',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Удалить',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // You need marker image IDs to delete precisely; here assume images array stores URIs so you must adapt if you store IDs
-              // Alternatively store image IDs in a parallel array or fetch objects from DB again
-              // For example purposes, delete by URI match from DB might be needed (extend your DB API)
+  const imageToDelete = images[selectedImageIndex];
 
-              // Example placeholder:
-              // await deleteImage(imageId);
-
-              // For now, just refresh images after deletion
-              Alert.alert('Удаление изображения', 'Удаление по URI пока не реализовано');
-              // Refresh images after deletion
-              const refreshedImages = await getImagesForMarker(markerData.id);
-              setImages(refreshedImages.map((img) => img.uri));
-              setImageViewerVisible(false);
-            } catch (error) {
-              Alert.alert('Ошибка', 'Не удалось удалить изображение');
-            }
-          },
+  Alert.alert(
+    'Удалить фото',
+    'Вы уверены, что хотите удалить это фото?',
+    [
+      { text: 'Отмена', style: 'cancel' },
+      {
+        text: 'Удалить',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteImage(imageToDelete.id);
+            const refreshedImages = await getImagesForMarker(markerData.id);
+            setImages(refreshedImages);
+            setImageViewerVisible(false);
+            setSelectedImageIndex(null);
+          } catch (error) {
+            Alert.alert('Ошибка', 'Не удалось удалить изображение');
+          }
         },
-      ]
-    );
-  };
+      },
+    ]
+  );
+};
 
   const handleDelete = () => {
     if (!markerData) return;
@@ -164,21 +157,30 @@ export default function MarkerDetailsScreen() {
           {images.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.imageGrid}>
-                {images.map((uri, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    onPress={() => {
-                      setSelectedImageIndex(index);
-                      setImageViewerVisible(true);
-                    }}
-                    style={styles.imageWrapper}
-                  >
-                    <Image source={{ uri }} style={styles.thumbnail} />
-                  </TouchableOpacity>
+                {images.map((image, index) => (
+                  <View key={image.id} style={styles.imageWrapper}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedImageIndex(index);
+                        setImageViewerVisible(true);
+                      }}
+                    >
+                      <Image source={{ uri: image.uri }} style={styles.thumbnail} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.deleteIconContainer}
+                      onPress={() => {
+                        setSelectedImageIndex(index);
+                        handleDeleteImage();
+                      }}
+                    >
+                      <MaterialIcons name="delete" size={20} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
                 ))}
               </View>
             </ScrollView>
-          ) : (
+            ) : (
             <View style={styles.emptyImagesContainer}>
               <MaterialIcons name="photo-library" size={48} color="#666" />
               <Text style={styles.emptyImagesText}>Нет фотографий</Text>
@@ -220,8 +222,8 @@ export default function MarkerDetailsScreen() {
       </ScrollView>
 
       <ImageView
-        images={images.map((uri) => ({ uri }))}
-        imageIndex={selectedImageIndex}
+        images={images.map((img) => ({ uri: img.uri }))}
+        imageIndex={selectedImageIndex ?? 0}
         visible={imageViewerVisible}
         onRequestClose={() => setImageViewerVisible(false)}
       />
@@ -230,7 +232,6 @@ export default function MarkerDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  // Your styles unchanged...
   container: { flex: 1, backgroundColor: '#1a1d21' },
   header: {
     backgroundColor: '#25292e',
@@ -329,6 +330,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  deleteIconContainer: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 12,
+    padding: 2,
+    zIndex: 10,
   },
   imageViewerHeader: {
     position: 'absolute',

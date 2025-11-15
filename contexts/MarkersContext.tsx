@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { DatabaseOperations } from '../database/operations';
-import { initDatabase } from '../database/schema'; // Assuming your DB init code is here
+import { initDatabase } from '../database/schema';
 import { Image, MarkerCollection, MarkerData } from '../types';
 
 interface MarkersContextType {
@@ -10,6 +10,7 @@ interface MarkersContextType {
   deleteMarker: (id: number) => Promise<void>;
   getImagesForMarker: (markerId: number) => Promise<Image[]>;
   addImageToMarker: (markerId: number, imageUri: string) => Promise<void>;
+  deleteImage: (imageId: number) => Promise<void>;
 }
 
 const MarkersContext = createContext<MarkersContextType | undefined>(undefined);
@@ -19,7 +20,6 @@ export const MarkersProvider: React.FC = ({ children }) => {
   const [dbOperations, setDbOperations] = useState<DatabaseOperations | null>(null);
   const [isDbReady, setIsDbReady] = useState(false);
 
-  // Initialize DB and DatabaseOperations instance once
   useEffect(() => {
     const initializeDb = async () => {
       try {
@@ -34,7 +34,6 @@ export const MarkersProvider: React.FC = ({ children }) => {
     initializeDb();
   }, []);
 
-  // Fetch markers once dbOperations is ready
   useEffect(() => {
     if (!dbOperations) return;
 
@@ -80,13 +79,10 @@ export const MarkersProvider: React.FC = ({ children }) => {
       return;
     }
     try {
-      // Delete images related to the marker first
       await dbOperations.deleteImagesByMarkerId(id);
 
-      // Delete the marker itself
       await dbOperations.deleteMarker(id);
 
-      // Update local state by removing the marker
       setMarkers((prevMarkers) => prevMarkers.filter((marker) => marker.id !== id));
 
       console.log(`Deleted marker with ID: ${id} and its images`);
@@ -121,14 +117,26 @@ export const MarkersProvider: React.FC = ({ children }) => {
     }
   };
 
-  // Optionally, render null or loading while DB is initializing
+  const deleteImage = async (imageId: number) => {
+  if (!dbOperations) {
+    console.warn('Database not initialized yet');
+    return;
+  }
+  try {
+    await dbOperations.deleteImage(imageId);
+    console.log(`Deleted image with ID: ${imageId}`);
+  } catch (error) {
+    console.error('Error deleting image:', error);
+  }
+};
+
   if (!isDbReady) {
-    return null; // Or a loading spinner component
+    return null;
   }
 
   return (
     <MarkersContext.Provider
-      value={{ markers, addMarker, getMarkerById, deleteMarker, getImagesForMarker, addImageToMarker }}
+      value={{ markers, addMarker, getMarkerById, deleteMarker, getImagesForMarker, addImageToMarker, deleteImage }}
     >
       {children}
     </MarkersContext.Provider>

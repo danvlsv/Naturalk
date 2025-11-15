@@ -3,21 +3,21 @@ export interface Coordinate {
   longitude: number;
 }
 
-// Unified Marker type
+
 export interface MarkerData {
-  id: number; // Primary key
+  id: number;
   latitude: number;
   longitude: number;
-  title: string; // Optional title for app use
-  createdAt?: string; // Optional timestamp for database use
+  title: string;
+  createdAt?: string;
 }
 
-// Unified Image type
+
 export interface Image {
-  id: number; // Primary key
-  markerId: number; // Foreign key to Marker
-  uri: string; // Image URI
-  createdAt?: string; // Optional timestamp for database use
+  id: number;
+  markerId: number;
+  uri: string;
+  createdAt?: string;
 }
 export interface MarkerDetailsParams {
   id: number;
