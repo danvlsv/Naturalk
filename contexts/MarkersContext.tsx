@@ -1,96 +1,144 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { MarkerData } from '@/types';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { DatabaseOperations } from '../database/operations';
+import { initDatabase } from '../database/schema'; // Assuming your DB init code is here
+import { Image, MarkerCollection, MarkerData } from '../types';
 
 interface MarkersContextType {
-  markers: MarkerData[];
-  addMarker: (marker: MarkerData) => void;
-  updateMarker: (marker: MarkerData) => void;
-  deleteMarker: (id: string) => void;
-  getMarkerById: (id: string) => MarkerData | undefined;
+  markers: MarkerCollection;
+  addMarker: (marker: MarkerData) => Promise<void>;
+  getMarkerById: (id: number) => MarkerData | undefined;
+  deleteMarker: (id: number) => Promise<void>;
+  getImagesForMarker: (markerId: number) => Promise<Image[]>;
+  addImageToMarker: (markerId: number, imageUri: string) => Promise<void>;
 }
 
 const MarkersContext = createContext<MarkersContextType | undefined>(undefined);
 
-const STORAGE_KEY = '@markers_storage';
+export const MarkersProvider: React.FC = ({ children }) => {
+  const [markers, setMarkers] = useState<MarkerCollection>([]);
+  const [dbOperations, setDbOperations] = useState<DatabaseOperations | null>(null);
+  const [isDbReady, setIsDbReady] = useState(false);
 
-export function MarkersProvider({ children }: { children: ReactNode }) {
-  const [markers, setMarkers] = useState<MarkerData[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  // Load markers from AsyncStorage on mount
+  // Initialize DB and DatabaseOperations instance once
   useEffect(() => {
-    loadMarkers();
+    const initializeDb = async () => {
+      try {
+        const db = await initDatabase();
+        const dbOpsInstance = new DatabaseOperations(db);
+        setDbOperations(dbOpsInstance);
+        setIsDbReady(true);
+      } catch (error) {
+        console.error('Failed to initialize database:', error);
+      }
+    };
+    initializeDb();
   }, []);
 
-  // Save markers to AsyncStorage whenever they change
+  // Fetch markers once dbOperations is ready
   useEffect(() => {
-    if (isLoaded) {
-      saveMarkers();
-    }
-  }, [markers, isLoaded]);
+    if (!dbOperations) return;
 
-  const loadMarkers = async () => {
-    try {
-      const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);
-      if (jsonValue !== null) {
-        const loadedMarkers = JSON.parse(jsonValue);
-        // Convert createdAt strings back to Date objects
-        const parsedMarkers = loadedMarkers.map((marker: any) => ({
-          ...marker,
-          createdAt: new Date(marker.createdAt),
-        }));
-        setMarkers(parsedMarkers);
+    const fetchMarkers = async () => {
+      try {
+        const fetchedMarkers = await dbOperations.getMarkers();
+        setMarkers(fetchedMarkers);
+      } catch (error) {
+        console.error('Error fetching markers:', error);
       }
-    } catch (error) {
-      console.error('Error loading markers:', error);
-    } finally {
-      setIsLoaded(true);
-    }
-  };
+    };
 
-  const saveMarkers = async () => {
-    try {
-      const jsonValue = JSON.stringify(markers);
-      await AsyncStorage.setItem(STORAGE_KEY, jsonValue);
-    } catch (error) {
-      console.error('Error saving markers:', error);
-    }
-  };
+    fetchMarkers();
+  }, [dbOperations]);
 
-  const addMarker = (marker: MarkerData) => {
-    setMarkers((prev) => [...prev, marker]);
-  };
-
-  const updateMarker = (updatedMarker: MarkerData) => {
-    setMarkers((prev) =>
-      prev.map((marker) =>
-        marker.id === updatedMarker.id ? updatedMarker : marker
-      )
+  const addMarker = async (marker: MarkerData): Promise<number | undefined> => {
+  if (!dbOperations) {
+    console.warn('Database not initialized yet');
+    return undefined;
+  }
+  try {
+    const newMarkerId = await dbOperations.addMarker(
+      marker.latitude,
+      marker.longitude,
+      marker.title
     );
-  };
+    const newMarkerWithId = { ...marker, id: newMarkerId };
+    setMarkers((prevMarkers) => [...prevMarkers, newMarkerWithId]);
+    return newMarkerId;
+  } catch (error) {
+    console.error('Error adding marker:', error);
+    return undefined;
+  }
+};
 
-  const deleteMarker = (id: string) => {
-    setMarkers((prev) => prev.filter((marker) => marker.id !== id));
-  };
-
-  const getMarkerById = (id: string) => {
+  const getMarkerById = (id: number): MarkerData | undefined => {
     return markers.find((marker) => marker.id === id);
   };
 
+  const deleteMarker = async (id: number) => {
+    if (!dbOperations) {
+      console.warn('Database not initialized yet');
+      return;
+    }
+    try {
+      // Delete images related to the marker first
+      await dbOperations.deleteImagesByMarkerId(id);
+
+      // Delete the marker itself
+      await dbOperations.deleteMarker(id);
+
+      // Update local state by removing the marker
+      setMarkers((prevMarkers) => prevMarkers.filter((marker) => marker.id !== id));
+
+      console.log(`Deleted marker with ID: ${id} and its images`);
+    } catch (error) {
+      console.error('Error deleting marker and images:', error);
+    }
+  };
+
+  const getImagesForMarker = async (markerId: number): Promise<Image[]> => {
+    if (!dbOperations) {
+      console.warn('Database not initialized yet');
+      return [];
+    }
+    try {
+      return await dbOperations.getMarkerImages(markerId);
+    } catch (error) {
+      console.error('Error fetching images for marker:', error);
+      return [];
+    }
+  };
+
+  const addImageToMarker = async (markerId: number, imageUri: string) => {
+    if (!dbOperations) {
+      console.warn('Database not initialized yet');
+      return;
+    }
+    try {
+      await dbOperations.addImage(markerId, imageUri);
+      console.log(`Added image with URI: ${imageUri} to marker ID: ${markerId}`);
+    } catch (error) {
+      console.error('Error adding image to marker:', error);
+    }
+  };
+
+  // Optionally, render null or loading while DB is initializing
+  if (!isDbReady) {
+    return null; // Or a loading spinner component
+  }
+
   return (
     <MarkersContext.Provider
-      value={{ markers, addMarker, updateMarker, deleteMarker, getMarkerById }}
+      value={{ markers, addMarker, getMarkerById, deleteMarker, getImagesForMarker, addImageToMarker }}
     >
       {children}
     </MarkersContext.Provider>
   );
-}
+};
 
-export function useMarkers() {
+export const useMarkers = (): MarkersContextType => {
   const context = useContext(MarkersContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useMarkers must be used within a MarkersProvider');
   }
   return context;
-}
+};

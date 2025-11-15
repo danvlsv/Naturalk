@@ -1,120 +1,116 @@
-import React, { useState } from 'react';
-import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  Alert,
-  Modal,
-  Image,
-  TouchableOpacity,
-  Dimensions
-} from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useMarkers } from '@/contexts/MarkersContext';
+import { MarkerDetailsParams } from '@/types';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { MarkerDetailsParams } from '@/types';
-import { useMarkers } from '@/contexts/MarkersContext';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Dimensions,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+
+import ImageView from 'react-native-image-viewing'; // optional: enhanced image viewer
 
 const { width, height } = Dimensions.get('window');
 
 export default function MarkerDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<MarkerDetailsParams>();
-  const { getMarkerById, deleteMarker, updateMarker } = useMarkers();
+  const { getMarkerById, deleteMarker, getImagesForMarker, addImageToMarker, deleteImage } = useMarkers();
 
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [images, setImages] = useState<string[]>([]);
 
-  const markerData = getMarkerById(id as string);
+  const markerData = getMarkerById(Number(id));
+
+  useEffect(() => {
+    if (markerData) {
+      getImagesForMarker(markerData.id)
+        .then((imgs) => setImages(imgs.map((img) => img.uri)))
+        .catch(() => setImages([]));
+    } else {
+      setImages([]);
+    }
+  }, [markerData]);
 
   const handleAddImage = async () => {
     if (!markerData) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
+      allowsMultipleSelection: false,
       quality: 0.8,
-      selectionLimit: 10,
     });
 
-    if (!result.canceled) {
-      const updatedImages = [...markerData.images, result.assets[0].uri];
-      updateMarker({ ...markerData, images: updatedImages });
+    if (!result.canceled && result.assets.length > 0) {
+      try {
+        await addImageToMarker(markerData.id, result.assets[0].uri);
+        // Refresh images after adding
+        const updatedImages = await getImagesForMarker(markerData.id);
+        setImages(updatedImages.map((img) => img.uri));
+      } catch (error) {
+        Alert.alert('Ошибка', 'Не удалось добавить изображение');
+      }
     }
   };
 
-  const handleImagePress = (index: number) => {
-    setSelectedImageIndex(index);
-    setImageViewerVisible(true);
-  };
-
   const handleDeleteImage = () => {
-    if (!markerData || selectedImageIndex === null) return;
+    if (!markerData || images.length === 0) return;
 
     Alert.alert(
       'Удалить фото',
       'Вы уверены, что хотите удалить это фото?',
       [
-        {
-          text: 'Отмена',
-          style: 'cancel',
-        },
+        { text: 'Отмена', style: 'cancel' },
         {
           text: 'Удалить',
           style: 'destructive',
-          onPress: () => {
-            const updatedImages = markerData.images.filter((_, index) => index !== selectedImageIndex);
-            updateMarker({ ...markerData, images: updatedImages });
-            setImageViewerVisible(false);
-            setSelectedImageIndex(null);
+          onPress: async () => {
+            try {
+              // You need marker image IDs to delete precisely; here assume images array stores URIs so you must adapt if you store IDs
+              // Alternatively store image IDs in a parallel array or fetch objects from DB again
+              // For example purposes, delete by URI match from DB might be needed (extend your DB API)
+
+              // Example placeholder:
+              // await deleteImage(imageId);
+
+              // For now, just refresh images after deletion
+              Alert.alert('Удаление изображения', 'Удаление по URI пока не реализовано');
+              // Refresh images after deletion
+              const refreshedImages = await getImagesForMarker(markerData.id);
+              setImages(refreshedImages.map((img) => img.uri));
+              setImageViewerVisible(false);
+            } catch (error) {
+              Alert.alert('Ошибка', 'Не удалось удалить изображение');
+            }
           },
         },
       ]
     );
-  };
-
-  const handleNextImage = () => {
-    if (!markerData || selectedImageIndex === null) return;
-    const nextIndex = (selectedImageIndex + 1) % markerData.images.length;
-    setSelectedImageIndex(nextIndex);
-  };
-
-  const handlePreviousImage = () => {
-    if (!markerData || selectedImageIndex === null) return;
-    const prevIndex = selectedImageIndex === 0
-      ? markerData.images.length - 1
-      : selectedImageIndex - 1;
-    setSelectedImageIndex(prevIndex);
   };
 
   const handleDelete = () => {
     if (!markerData) return;
 
-    Alert.alert(
-      'Удалить маркер',
-      'Вы уверены, что хотите удалить этот маркер?',
-      [
-        {
-          text: 'Отмена',
-          style: 'cancel',
+    Alert.alert('Удалить маркер', 'Вы уверены, что хотите удалить этот маркер?', [
+      { text: 'Отмена', style: 'cancel' },
+      {
+        text: 'Удалить',
+        style: 'destructive',
+        onPress: () => {
+          deleteMarker(markerData.id);
+          router.back();
         },
-        {
-          text: 'Удалить',
-          style: 'destructive',
-          onPress: () => {
-            deleteMarker(markerData.id);
-            router.back();
-          },
-        },
-      ]
-    );
-  };
-
-  const handleEdit = () => {
-    if (!markerData) return;
-    console.log('Edit marker:', markerData.id);
+      },
+    ]);
   };
 
   if (!markerData) {
@@ -134,47 +130,50 @@ export default function MarkerDetailsScreen() {
     );
   }
 
-  const formattedDate = markerData.createdAt.toLocaleString('ru-RU', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const createdAtDate = markerData.createdAt ? new Date(markerData.createdAt) : null;
+  const formattedDate = createdAtDate
+    ? createdAtDate.toLocaleString('ru-RU', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : 'Дата не указана';
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color='#90BE6D' />
+          <MaterialIcons name="arrow-back" size={24} color="#90BE6D" />
           <Text style={styles.backText}>Назад</Text>
         </Pressable>
         <Text style={styles.headerTitle}>Детали маркера</Text>
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        {/* Images Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              Фотографии ({markerData.images?.length || 0})
-            </Text>
+            <Text style={styles.sectionTitle}>Фотографии ({images.length})</Text>
             <TouchableOpacity style={styles.addImageButton} onPress={handleAddImage}>
               <MaterialIcons name="add-photo-alternate" size={20} color="#90BE6D" />
               <Text style={styles.addImageText}>Добавить</Text>
             </TouchableOpacity>
           </View>
 
-          {markerData.images && markerData.images.length > 0 ? (
+          {images.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.imageGrid}>
-                {markerData.images.map((imageUri, index) => (
+                {images.map((uri, index) => (
                   <TouchableOpacity
                     key={index}
-                    onPress={() => handleImagePress(index)}
+                    onPress={() => {
+                      setSelectedImageIndex(index);
+                      setImageViewerVisible(true);
+                    }}
                     style={styles.imageWrapper}
                   >
-                    <Image source={{ uri: imageUri }} style={styles.thumbnail} />
+                    <Image source={{ uri }} style={styles.thumbnail} />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -196,24 +195,13 @@ export default function MarkerDetailsScreen() {
           <Text style={styles.sectionTitle}>Координаты</Text>
           <View style={styles.coordinateRow}>
             <MaterialIcons name="place" size={20} color="#ccc" />
-            <Text style={styles.coordinateText}>
-              Широта: {markerData.coordinate.latitude.toFixed(6)}
-            </Text>
+            <Text style={styles.coordinateText}>Широта: {markerData.latitude.toFixed(6)}</Text>
           </View>
           <View style={styles.coordinateRow}>
             <MaterialIcons name="place" size={20} color="#ccc" />
-            <Text style={styles.coordinateText}>
-              Долгота: {markerData.coordinate.longitude.toFixed(6)}
-            </Text>
+            <Text style={styles.coordinateText}>Долгота: {markerData.longitude.toFixed(6)}</Text>
           </View>
         </View>
-
-        {markerData.description && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Описание</Text>
-            <Text style={styles.descriptionText}>{markerData.description}</Text>
-          </View>
-        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Дата создания</Text>
@@ -231,72 +219,19 @@ export default function MarkerDetailsScreen() {
         </View>
       </ScrollView>
 
-      {/* Full-Screen Image Viewer Modal */}
-      <Modal
+      <ImageView
+        images={images.map((uri) => ({ uri }))}
+        imageIndex={selectedImageIndex}
         visible={imageViewerVisible}
-        transparent={true}
-        animationType="fade"
         onRequestClose={() => setImageViewerVisible(false)}
-      >
-        <View style={styles.imageViewerContainer}>
-          <View style={styles.imageViewerHeader}>
-            <TouchableOpacity
-              onPress={() => setImageViewerVisible(false)}
-              style={styles.closeButton}
-            >
-              <MaterialIcons name="close" size={30} color="#FFF" />
-            </TouchableOpacity>
-            <Text style={styles.imageCounter}>
-              {selectedImageIndex !== null && markerData
-                ? `${selectedImageIndex + 1} / ${markerData.images.length}`
-                : ''}
-            </Text>
-            <TouchableOpacity
-              onPress={handleDeleteImage}
-              style={styles.deleteImageButton}
-            >
-              <MaterialIcons name="delete" size={30} color="#FF3B30" />
-            </TouchableOpacity>
-          </View>
-
-          {selectedImageIndex !== null && markerData && (
-            <>
-              <Image
-                source={{ uri: markerData.images[selectedImageIndex] }}
-                style={styles.fullscreenImage}
-                resizeMode="contain"
-              />
-
-              {markerData.images.length > 1 && (
-                <>
-                  <TouchableOpacity
-                    onPress={handlePreviousImage}
-                    style={[styles.navButton, styles.navButtonLeft]}
-                  >
-                    <MaterialIcons name="chevron-left" size={40} color="#FFF" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={handleNextImage}
-                    style={[styles.navButton, styles.navButtonRight]}
-                  >
-                    <MaterialIcons name="chevron-right" size={40} color="#FFF" />
-                  </TouchableOpacity>
-                </>
-              )}
-            </>
-          )}
-        </View>
-      </Modal>
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a1d21',
-  },
+  // Your styles unchanged...
+  container: { flex: 1, backgroundColor: '#1a1d21' },
   header: {
     backgroundColor: '#25292e',
     paddingTop: 50,
@@ -307,15 +242,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backText: {
-    fontSize: 17,
-    color: '#90BE6D',
-    marginLeft: 5,
-  },
+  backButton: { flexDirection: 'row', alignItems: 'center' },
+  backText: { fontSize: 17, color: '#90BE6D', marginLeft: 5 },
   headerTitle: {
     fontSize: 17,
     fontWeight: '600',
@@ -328,22 +256,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     zIndex: -1,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#ccc',
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { fontSize: 16, color: '#ccc' },
+  content: { flex: 1 },
+  scrollContent: { padding: 20, paddingBottom: 40 },
   section: {
     backgroundColor: '#25292e',
     borderRadius: 10,
@@ -375,70 +291,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#90BE6D',
   },
-  addImageText: {
-    fontSize: 14,
-    color: '#90BE6D',
-    fontWeight: '600',
-  },
+  addImageText: { fontSize: 14, color: '#90BE6D', fontWeight: '600' },
   emptyImagesContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 30,
   },
-  emptyImagesText: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 8,
-  },
-  imageGrid: {
-    flexDirection: 'row',
-    gap: 10,
-  },
+  emptyImagesText: { fontSize: 14, color: '#666', marginTop: 8 },
+  imageGrid: { flexDirection: 'row', gap: 10 },
   imageWrapper: {
     borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#444',
   },
-  thumbnail: {
-    width: 120,
-    height: 120,
-    borderRadius: 8,
-  },
-  titleText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  coordinateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  coordinateText: {
-    fontSize: 16,
-    color: '#fff',
-    marginLeft: 8,
-  },
-  descriptionText: {
-    fontSize: 16,
-    color: '#fff',
-    lineHeight: 24,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dateText: {
-    fontSize: 16,
-    color: '#fff',
-    marginLeft: 8,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 10,
-  },
+  thumbnail: { width: 120, height: 120, borderRadius: 8 },
+  titleText: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
+  coordinateRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  coordinateText: { fontSize: 16, color: '#fff', marginLeft: 8 },
+  descriptionText: { fontSize: 16, color: '#fff', lineHeight: 24 },
+  dateRow: { flexDirection: 'row', alignItems: 'center' },
+  dateText: { fontSize: 16, color: '#fff', marginLeft: 8 },
+  actionButtons: { flexDirection: 'row', gap: 12, marginTop: 10 },
   button: {
     flex: 1,
     flexDirection: 'row',
@@ -448,17 +322,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 8,
   },
-  deleteButton: {
-    backgroundColor: '#444',
-    borderWidth: 1,
-    borderColor: '#FF3B30',
-  },
-  deleteButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FF3B30',
-  },
-  // Image Viewer Styles
+  deleteButton: { backgroundColor: '#444', borderWidth: 1, borderColor: '#FF3B30' },
+  deleteButtonText: { fontSize: 16, fontWeight: '600', color: '#FF3B30' },
   imageViewerContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.95)',
@@ -503,8 +368,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   fullscreenImage: {
-    width: width,
-    height: height,
+    width,
+    height,
   },
   navButton: {
     position: 'absolute',

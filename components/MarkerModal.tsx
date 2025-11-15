@@ -1,33 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import { MarkerData } from '@/types';
+import React, { useEffect, useState } from 'react';
 import {
+  Alert,
+  Keyboard,
   Modal,
-  View,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  Alert,
-  StyleSheet,
   TouchableWithoutFeedback,
-  Keyboard
+  View
 } from 'react-native';
 import ImagePickerComponent from './ImagePicker';
-import { MarkerData } from '@/types';
 
 interface MarkerModalProps {
   visible: boolean;
   marker: MarkerData;
+  images: { uri: string }[];
+  onChangeImages: (images: { uri: string }[]) => void;
   onSave: (marker: MarkerData) => void;
   onCancel: () => void;
 }
 
-export default function MarkerModal({ visible, marker, onSave, onCancel }: MarkerModalProps) {
-  const [markerName, setMarkerName] = useState(marker.title);
-  const [selectedImages, setSelectedImages] = useState<string[]>(marker.images || []);
+export default function MarkerModal({ visible, marker, images, onChangeImages, onSave, onCancel }: MarkerModalProps) {
+  const [markerName, setMarkerName] = useState(marker.title || '');
 
+  // Update local states when marker or images prop changes
   useEffect(() => {
-    setMarkerName(marker.title);
-    setSelectedImages(marker.images || []);
+    setMarkerName(marker.title || '');
   }, [marker]);
 
   const handleSave = () => {
@@ -35,20 +36,18 @@ export default function MarkerModal({ visible, marker, onSave, onCancel }: Marke
       Alert.alert('Ошибка', 'Пожалуйста, введите название маркера');
       return;
     }
-    onSave({ ...marker, title: markerName.trim(), images: selectedImages });
+    // Pass updated marker and images separately on save
+    onSave({ ...marker, title: markerName.trim() }, images);
   };
 
   return (
     <Modal animationType="slide" transparent visible={visible} onRequestClose={onCancel}>
       <View style={styles.modalOverlay}>
-        {/* Touchable overlay for dismissing modal */}
         <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); onCancel(); }}>
           <View style={styles.overlayTouchable} />
         </TouchableWithoutFeedback>
 
-        {/* Modal content */}
         <View style={styles.modalContent}>
-          {/* Fixed header */}
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Добавить маркер</Text>
             <TouchableOpacity onPress={onCancel} style={styles.closeButton}>
@@ -56,7 +55,6 @@ export default function MarkerModal({ visible, marker, onSave, onCancel }: Marke
             </TouchableOpacity>
           </View>
 
-          {/* Scrollable content */}
           <ScrollView
             style={styles.modalBody}
             showsVerticalScrollIndicator={false}
@@ -77,14 +75,16 @@ export default function MarkerModal({ visible, marker, onSave, onCancel }: Marke
             <View style={styles.formGroup}>
               <Text style={styles.label}>Координаты</Text>
               <Text style={styles.coordinates}>
-                {marker.coordinate.latitude.toFixed(6)}, {marker.coordinate.longitude.toFixed(6)}
+                {marker.latitude.toFixed(6)}, {marker.longitude.toFixed(6)}
               </Text>
             </View>
 
-            <ImagePickerComponent selectedImages={selectedImages} onChange={setSelectedImages} />
+            <ImagePickerComponent
+              selectedImages={images.map(image => image.uri)}
+              onChange={(uris) => onChangeImages(uris.map(uri => ({ uri })))}
+            />
           </ScrollView>
 
-          {/* Fixed footer */}
           <View style={styles.modalFooter}>
             <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
               <Text style={styles.cancelButtonText}>Отмена</Text>
