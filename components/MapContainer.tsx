@@ -2,8 +2,9 @@ import { useMarkers } from '@/contexts/MarkersContext';
 import { MarkerData } from '@/types';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { Button, View } from 'react-native';
 import MapView, { MapPressEvent, Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import MarkerList from './MarkerList';
 import MarkerModal from './MarkerModal';
 
 interface MapContainerProps {
@@ -25,17 +26,25 @@ export default function MapContainer({ initialRegion }: MapContainerProps) {
   const [currentMarker, setCurrentMarker] = useState<MarkerData | null>(null);
   const [currentImages, setCurrentImages] = useState<{ uri: string }[]>([]);
 
+  const [listVisible, setListVisible] = useState(false);
+
   const handleLongPress = (event: MapPressEvent) => {
-  const { coordinate } = event.nativeEvent;
-  const newMarker: MarkerData = {
-    latitude: coordinate.latitude,
-    longitude: coordinate.longitude,
-    title: 'Новый маркер',
+    const { coordinate } = event.nativeEvent;
+    const newMarker: MarkerData = {
+      latitude: coordinate.latitude,
+      longitude: coordinate.longitude,
+      title: 'Новый маркер',
+    };
+    setListVisible(false);
+    setCurrentMarker(newMarker);
+    setCurrentImages([]);
+    setModalVisible(true);
   };
-  setCurrentMarker(newMarker);
-  setCurrentImages([]);
-  setModalVisible(true);
-};
+
+  const onSelectMarker = (marker: MarkerData) => {
+    setListVisible(false);
+    router.push(`/marker/${marker.id}`);
+  };
 
   const handleMarkerPress = (marker: Marker) => {
     router.push(`/marker/${marker.id}`);
@@ -70,34 +79,42 @@ export default function MapContainer({ initialRegion }: MapContainerProps) {
 
   return (
     <View style={{ flex: 1 }}>
-      <MapView
-        style={{ flex: 1 }}
-        provider={PROVIDER_GOOGLE}
-        initialRegion={initialRegion || defaultRegion}
-        onLongPress={handleLongPress}
-        showsUserLocation
-        showsMyLocationButton
-        showsCompass
-        showsScale
-      >
-        {markers.map((marker) => (
-          <Marker
-            key={marker.id}
-            coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
-            onPress={() => handleMarkerPress(marker)}
-          />
-        ))}
-      </MapView>
+      <Button color="#90BE6D" title={listVisible ? 'Скрыть список' : 'Показать список маркеров'} onPress={() => setListVisible(!listVisible)} />
 
-      {modalVisible && currentMarker && (
-        <MarkerModal
-          visible={modalVisible}
-          marker={currentMarker}
-          images={currentImages}
-          onChangeImages={setCurrentImages}
-          onSave={onSaveMarker}
-          onCancel={onCancelMarker}
-        />
+      {listVisible ? (
+        <MarkerList markers={markers} onSelectMarker={onSelectMarker} />
+      ) : (
+        <>
+          <MapView
+          style={{ flex: 1 }}
+          provider={PROVIDER_GOOGLE}
+          initialRegion={initialRegion || defaultRegion}
+          onLongPress={handleLongPress}
+          showsUserLocation
+          showsMyLocationButton
+          showsCompass
+          showsScale
+        >
+          {markers.map((marker) => (
+            <Marker
+              key={marker.id}
+              coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
+              onPress={() => handleMarkerPress(marker)}
+            />
+          ))}
+        </MapView>
+
+        {modalVisible && currentMarker && (
+          <MarkerModal
+            visible={modalVisible}
+            marker={currentMarker}
+            images={currentImages}
+            onChangeImages={setCurrentImages}
+            onSave={onSaveMarker}
+            onCancel={onCancelMarker}
+          />
+        )}
+        </>
       )}
     </View>
   );
