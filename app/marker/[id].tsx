@@ -123,6 +123,7 @@ export default function MarkerDetailsScreen() {
     );
   }
 
+  // FIX: can't get createdAt
   const createdAtDate = markerData.createdAt ? new Date(markerData.createdAt) : null;
   const formattedDate = createdAtDate
     ? createdAtDate.toLocaleString('ru-RU', {
